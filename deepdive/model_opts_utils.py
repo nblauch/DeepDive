@@ -1,6 +1,6 @@
 ### Auxiliary Functions: Feature Extraction ---------------------------------------------------------
 
-from feature_extraction import *
+from .feature_extraction import *
 
 def chunk_list(lst, n):
     for i in range(0, len(lst), n):

@@ -13,7 +13,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 from torch.autograd import Variable
 
-from model_options import *
+from .model_options import *
 
 def get_prepped_model(model_string):
     model_options = get_model_options()
