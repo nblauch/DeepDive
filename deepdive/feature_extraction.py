@@ -46,6 +46,9 @@ def prep_model_for_extraction(model, inputs = None):
         if next(model.parameters()).is_cuda:
             if isinstance(inputs, dict):
                 inputs = {k:v.cuda() for k,v in inputs.items()}
+            elif isinstance(inputs, list) and len(inputs) == 2:
+                # standard ImageFolder output of (data, target)
+                inputs = inputs[0].cuda()
             if not isinstance(inputs, dict):
                 inputs = inputs.cuda()
             
@@ -89,9 +92,12 @@ def get_features_by_layer(model, target_layer, img_tensor):
 def get_inputs_sample(inputs, n = 3):
     if isinstance(inputs, torch.Tensor):
         input_sample = inputs[:n]
-        
-    if isinstance(inputs, DataLoader):
+    elif isinstance(inputs, tuple) or isinstance(inputs, list):
+        input_sample = inputs[0][:n]
+    elif isinstance(inputs, DataLoader):
         input_sample = next(iter(inputs))[:3]
+    else:
+        raise ValueError()
         
     return input_sample
 
@@ -257,7 +263,7 @@ def get_empty_feature_maps(model, inputs = None, input_size=(3,224,224), dataset
         inputs = get_inputs_sample(inputs)
         
     if inputs is None:
-        inputs = torch.rand(3, *input_size)
+        inputs = torch.rand(dataset_size, *input_size)
         
     empty_feature_maps = get_feature_maps(model, inputs, layers_to_retain, remove_duplicates)
     
@@ -279,8 +285,17 @@ def get_all_feature_maps(model, inputs, layers_to_retain=None, remove_duplicates
         model = get_prepped_model(model)
     
     if isinstance(inputs, DataLoader):
-        input_size, dataset_size, start_index = inputs.dataset[0].shape, len(inputs.dataset), 0
-        feature_maps = get_empty_feature_maps(model, next(iter(inputs))[:3], input_size, 
+        # dataset_size = inputs.batch_size
+        dataset_size = len(inputs.dataset)
+        # if isinstance(inputs.dataset[0], tuple):
+        #     dataset_size = inputs.dataset[0][0].shape
+        # else:
+        #     dataset_size = inputs.dataset[0].shape
+        input_size, start_index = len(inputs.dataset), 0
+        batch = next(iter(inputs))
+        if isinstance(batch, tuple) or isinstance(batch, list):
+            batch = batch[0]
+        feature_maps = get_empty_feature_maps(model, batch[:3], input_size, 
                                               dataset_size, layers_to_retain, remove_duplicates)
         
         if include_input_space:
@@ -289,6 +304,8 @@ def get_all_feature_maps(model, inputs, layers_to_retain=None, remove_duplicates
         
         
         for imgs in tqdm(inputs, desc = 'Feature Extraction (Batch)') if use_tqdm else inputs:
+            if isinstance(imgs, tuple) or isinstance(imgs, list):
+                imgs = imgs[0]
             imgs = imgs.cuda() if next(model.parameters()).is_cuda else imgs
             batch_feature_maps = get_feature_maps(model, imgs, layers_to_retain, remove_duplicates = False)
             
